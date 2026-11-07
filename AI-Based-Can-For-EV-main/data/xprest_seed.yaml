@@ -1,0 +1,141 @@
+# DRIVOX — Xpres-T EV hypothesis seed
+# Every signal here is UNCONFIRMED until calibration-validated. The DBC
+# export filters by confidence so 'low' signals are not included by default.
+frames:
+  - can_id: "0x111"
+    name: "VCU_TorqueDemand"
+    length: 8
+    cycle_time_ms: 70
+    sender: "VCU"
+    notes: "Only byte 1 changes (0..178). First appears at t=8.47s -> drive-enable. Highest-frequency signal on bus."
+    signals:
+      - name: "TorqueDemandRaw"
+        start_bit: 8
+        length_bits: 8
+        byte_order: "big_endian"
+        is_signed: false
+        factor: 1.0
+        offset: 0.0
+        minimum: 0
+        maximum: 178
+        unit: "raw"
+        sender: "VCU"
+        receivers: ["MCU", "DRIVOX"]
+        confidence: "medium"
+        notes: "Nm vs % unresolved; needs IMU accel correlation."
+        confirming_test: "Calibration: full-throttle launch, correlate peak byte1 with IMU accel; if peak ~178 maps to ~3 m/s2 then likely Nm, otherwise %."
+
+  - can_id: "0x247"
+    name: "MCU_SpeedOrRPM"
+    length: 8
+    cycle_time_ms: 227
+    sender: "MCU"
+    notes: "Bytes 5+6 BE word 3363..6066. Byte 7 alternates 0x8D/0x8E. Scale unresolved: km/h*100 vs raw RPM."
+    signals:
+      - name: "SpeedOrRpmRaw_BE"
+        start_bit: 47          # cantools BE start = MSB bit position
+        length_bits: 16
+        byte_order: "big_endian"
+        is_signed: false
+        factor: 1.0
+        offset: 0.0
+        minimum: 0
+        maximum: 8000
+        unit: "raw"
+        sender: "MCU"
+        receivers: ["DRIVOX"]
+        confidence: "medium"
+        notes: "Encoding unresolved. Calibration drive at 30/50/70 km/h required."
+        confirming_test: "Hold GPS-locked 30/50/70 km/h for 60s each; compute word_mean / km/h. Constant ~100 -> speed*100. Else compute implied RPM vs final-drive."
+      - name: "AliveCounter247"
+        start_bit: 63
+        length_bits: 8
+        byte_order: "big_endian"
+        is_signed: false
+        factor: 1.0
+        offset: 0.0
+        unit: ""
+        confidence: "high"
+        notes: "Strict alternation 0x8D <-> 0x8E. Classic alive counter."
+        confirming_test: "None needed; pattern is unambiguous."
+
+  - can_id: "0x249"
+    name: "MCU_AliveAndStatus"
+    length: 8
+    cycle_time_ms: 227
+    sender: "MCU"
+    notes: "Mostly counters. Strict alternation in byte 5 argues against 'regen flag' interpretation."
+    signals:
+      - name: "Byte5Counter"
+        start_bit: 47
+        length_bits: 8
+        byte_order: "big_endian"
+        is_signed: false
+        factor: 1.0
+        offset: 0.0
+        confidence: "medium"
+        notes: "Strict per-frame alternation 0x91 <-> 0xD1. Bit 6 differs, bit 7 set in both. Counter, not state flag (a flag should hold across many frames)."
+        confirming_test: "Sustained paddle regen capture: if bit6 pins to 1 for regen duration -> revisit as state flag. If still alternating -> confirmed counter."
+
+  - can_id: "0x398"
+    name: "BMS_PrimaryFrame"
+    length: 8
+    cycle_time_ms: 580
+    sender: "BMS"
+    notes: "Word b0+b1 monotonic rise; b3 temperature candidate. b7 cycles 0xE0/E4/E8/EC counter."
+    signals:
+      - name: "AccumulatorOrOdo"
+        start_bit: 7
+        length_bits: 16
+        byte_order: "big_endian"
+        is_signed: false
+        factor: 0.1
+        offset: 0.0
+        unit: ""
+        confidence: "low"
+        notes: "Monotonic over 121s. Rules out V/SoC. Best fit Wh-consumed or odometer pulses."
+        confirming_test: "Long drive (>10 min) with known km traveled; compare delta to odometer."
+      - name: "PackTempCandidate"
+        start_bit: 31
+        length_bits: 8
+        byte_order: "big_endian"
+        is_signed: false
+        factor: 1.0
+        offset: 0.0
+        unit: "degC"
+        confidence: "low"
+        notes: "Range 13..24 plausible for ambient/coolant. Could also be unsigned offset (val-40)."
+        confirming_test: "Park outdoors at known ambient; compare byte3 reading."
+
+  - can_id: "0x38F"
+    name: "MCU_InverterHandshake"
+    length: 8
+    cycle_time_ms: 800
+    sender: "MCU"
+    notes: "Two-state alternation between bytes 1 (0x40<->0x80) and 2 (0xF1<->0xF9 bit3). Likely PWM-sync token."
+
+  - can_id: "0x380"
+    name: "MCU_Heartbeat"
+    length: 8
+    cycle_time_ms: 1430
+    sender: "MCU"
+    notes: "Byte 1 in 3 discrete states (0x4A/0x62/0x72). May encode thermal zone or operating mode."
+
+  - can_id: "0x38A"
+    name: "Thermal_OrHVAC"
+    length: 8
+    cycle_time_ms: 1000
+    sender: "Thermal"
+    notes: "First appears t=7.66s, before motor enable. Byte2 toggles 0x45/0x46, byte5 toggles 0x20/0x24."
+
+  - can_id: "0x386"
+    name: "Anomaly_StopsAt80s"
+    length: 8
+    sender: "Unknown"
+    notes: "ANOMALY: active 3.2-80.2s, then silent. Candidates: charge-readiness gate, pre-conditioning timeout, mode-transition side effect. Reproduce with deliberate mode switch."
+
+  - can_id: "0x389"
+    name: "Anomaly_LateSpike"
+    length: 8
+    sender: "Unknown"
+    notes: "ANOMALY: 2 frames at t~106.7s and 107.7s after 106s silence. Fault-trigger pattern. DTC scan needed."

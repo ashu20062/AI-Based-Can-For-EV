@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Captured sessions — real vehicle data, often hundreds of MB
+session_*/
+captures/
+*.csv
+!examples/*.csv
+
+# Generated artefacts
+*.dbc
+analysis_report.txt
+evidence.md
+
+# SavvyCAN settings backup
+*.drivox-bak
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store

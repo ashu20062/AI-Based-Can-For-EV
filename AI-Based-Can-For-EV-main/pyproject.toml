@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drivox-canre"
+version = "0.1.0"
+description = "Interactive CAN-bus reverse-engineering tool for the DRIVOX self-driving data-collection pipeline (Tata Xpres-T EV)."
+requires-python = ">=3.10"
+dependencies = [
+    "python-can>=4.0",
+    "cantools>=39",
+    "PyYAML>=6.0",
+    "numpy>=1.24",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+# The CANalyst-II hardware backend. pyusb is used directly for dropout
+# detection and by `drivox-canre doctor`.
+canalystii = ["canalystii>=0.1", "pyusb>=1.2"]
+
+[project.scripts]
+drivox-canre = "drivox_canre.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["drivox_canre*"]
